@@ -9,24 +9,48 @@
  */
 
 export interface Env {
-	// Example binding to KV. Learn more at https://developers.cloudflare.com/workers/runtime-apis/kv/
-	// MY_KV_NAMESPACE: KVNamespace;
-	//
-	// Example binding to Durable Object. Learn more at https://developers.cloudflare.com/workers/runtime-apis/durable-objects/
-	// MY_DURABLE_OBJECT: DurableObjectNamespace;
-	//
+
 	// Example binding to R2. Learn more at https://developers.cloudflare.com/workers/runtime-apis/r2/
-	// MY_BUCKET: R2Bucket;
-	//
-	// Example binding to a Service. Learn more at https://developers.cloudflare.com/workers/runtime-apis/service-bindings/
-	// MY_SERVICE: Fetcher;
-	//
-	// Example binding to a Queue. Learn more at https://developers.cloudflare.com/queues/javascript-apis/
-	// MY_QUEUE: Queue;
+	IMAGE_BUCKET: R2Bucket;
+	AUTHORIZATION_KEY: String;
+}
+
+
+function canCreateNewImage(request: Request, env: Env){
+	return (request.headers.get("auth") ?? "") === env.AUTHORIZATION_KEY;
 }
 
 export default {
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-		return new Response('Hello World!');
+		
+		const { protocol, pathname } = new URL(request.url);
+		if(request.method === "POST"){
+			if(!canCreateNewImage(request, env)){
+				return new Response("Unauthorized", {
+					status: 403
+				});
+			}
+			const key = `${Math.floor(new Date().getTime() / 1000)}`;
+			await env.IMAGE_BUCKET.put(key, request.body);
+			return new Response(`https://image.nosharp.cc/${key}`, {
+				status: 200
+			});
+
+		}else if(request.method === "GET"){
+			const key = pathname.slice(1);
+			const object = await env.IMAGE_BUCKET.get(key);
+			if(!object) return new Response("404", {status: 404});
+			return new Response(await object.arrayBuffer(), {
+				status: 200,
+				headers: {
+					"Content-Type": object?.httpMetadata?.contentType ?? '',
+					"Cache-Control": `public, max-age=${ 60 * 60 * 24 * 30}`
+				}
+			})
+		}
+
+		return new Response("404", {
+			status: 404
+		})
 	},
 };
