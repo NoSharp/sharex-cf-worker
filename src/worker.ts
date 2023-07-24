@@ -13,6 +13,7 @@ export interface Env {
 	// Example binding to R2. Learn more at https://developers.cloudflare.com/workers/runtime-apis/r2/
 	IMAGE_BUCKET: R2Bucket;
 	AUTHORIZATION_KEY: String;
+	IMAGE_PREFIX_URL: String;
 }
 
 
@@ -32,7 +33,7 @@ export default {
 			}
 			const key = `${Math.floor(new Date().getTime() / 1000)}`;
 			await env.IMAGE_BUCKET.put(key, request.body);
-			return new Response(`https://image.nosharp.cc/${key}`, {
+			return new Response(`${env.IMAGE_PREFIX_URL}/${key}`, {
 				status: 200
 			});
 
