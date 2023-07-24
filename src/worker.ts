@@ -31,7 +31,7 @@ export default {
 					status: 403
 				});
 			}
-			const key = `${Math.floor(new Date().getTime() / 1000)}`;
+			const key = crypto.randomUUID();
 			await env.IMAGE_BUCKET.put(key, request.body);
 			return new Response(`${env.IMAGE_PREFIX_URL}/${key}`, {
 				status: 200
